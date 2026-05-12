@@ -67,7 +67,7 @@ async function startRegistrationFlow(userPhone: string, message: any): Promise<v
     startUserRegistration(userPhone, 'name'); // Self-registration starts at name
     const actualPhone = userPhone.split('@')[0];
     storeRegistrationData(userPhone, 'phone', '+' + actualPhone); // Pre-fill phone number
-    
+
     const step = getUserRegistrationStep(userPhone);
     console.log(`[REG] Registration started for ${userPhone}, initial step: ${step}`);
 
@@ -122,7 +122,7 @@ export function setupMessageHandler(client: any): void {
 
                 // Step 1: Check if user is waiting for language selection
                 let isWaiting = isWaitingForLanguageSelection(userPhone);
-                
+
                 // Proactive check: If user sends 1 or 2, they might have just joined but the event was delayed/missed
                 if (!isWaiting && (message.body.trim() === '1' || message.body.trim() === '2')) {
                     console.log(`[MSG] Proactively marking ${userPhone} for language selection as they sent: ${message.body}`);
@@ -139,8 +139,8 @@ export function setupMessageHandler(client: any): void {
 
                         await startRegistrationFlow(userPhone, message);
                     } else if (message.body.trim() === '1' || message.body.trim() === '2') {
-                         // This case shouldn't really happen with the new logic, but for safety:
-                         console.log(`[LANG] Re-trying language selection for ${userPhone}`);
+                        // This case shouldn't really happen with the new logic, but for safety:
+                        console.log(`[LANG] Re-trying language selection for ${userPhone}`);
                     } else {
                         console.log(`[LANG] Invalid language selection from ${userPhone}: "${message.body}"`);
                         const msg = t('register.selectLanguage', userPhone);
@@ -217,10 +217,10 @@ export function setupMessageHandler(client: any): void {
                                 await message.reply(t('register.invalidOption', userPhone));
                                 return;
                             }
-                            
+
                             const regDataMap = getRegistrationData(userPhone);
                             const currentProf = regDataMap?.profession;
-                            
+
                             let subProfStr = userInput as string;
                             if (currentProf === 'Electrician') {
                                 subProfStr = ({ '1': 'Wiring', '2': 'Appliance Repair', '3': 'Installation' } as Record<string, string>)[userInput as string] || userInput;
