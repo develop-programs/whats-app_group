@@ -3,6 +3,8 @@ import { CONFIG } from './config.js';
 import { logActivity } from './logger.js';
 import { syncGroup } from './group-service.js';
 import { initializeChoresStorage } from './chores-storage.js';
+import { saveRegistrationToSheet } from './google-sheets.js';
+import { saveLocalData } from './data-storage.js';
 import { t } from './language.js';
 import {
     isWaitingForLanguageSelection,
@@ -245,8 +247,24 @@ export function setupMessageHandler(client: any): void {
                                     .replace('{subProfession}', regData.subProfession);
                                 console.log(`[REG] Sending success message`);
                                 await message.reply(successMsg);
-                                logActivity(`Worker registered: ${regData.name} (${regData.profession} - ${regData.subProfession})`);
                                 console.log(`[REG] SUCCESS: Worker ${userPhone} fully registered`);
+                                
+                                // Save to separate local data file instead of general logs
+                                saveLocalData({
+                                    name: regData.name,
+                                    phone: regData.phone,
+                                    profession: regData.profession,
+                                    subProfession: regData.subProfession
+                                });
+                                
+                                // Save to Google Sheets
+                                await saveRegistrationToSheet({
+                                    date: new Date().toLocaleString(),
+                                    name: regData.name,
+                                    phone: regData.phone,
+                                    profession: regData.profession,
+                                    subProfession: regData.subProfession
+                                });
                             } else {
                                 console.error(`[REG] Registration data incomplete:`, regData);
                             }
