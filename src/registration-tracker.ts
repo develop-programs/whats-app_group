@@ -33,8 +33,8 @@ export function getUserRegistrationStep(userPhone: string): RegistrationStep | n
 }
 
 // Start registration for user
-export function startUserRegistration(userPhone: string): void {
-    usersInRegistration.set(userPhone, 'name');
+export function startUserRegistration(userPhone: string, startStep: RegistrationStep = 'name'): void {
+    usersInRegistration.set(userPhone, startStep);
     registrationData.set(userPhone, {});
 }
 
