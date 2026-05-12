@@ -1,11 +1,27 @@
-// User registration state tracking
-export type RegistrationStep = 'name' | 'phone' | 'profession' | 'subProfession';
+// User registration state tracking for Hindustaan Seva
+export type RegistrationStep = 
+    | 'name' 
+    | 'aadhaar' 
+    | 'trade' 
+    | 'experience' 
+    | 'availability' 
+    | 'selfie' 
+    | 'selfiePath' // Added to allow storing path
+    | 'review';
 
 // Map to track users in registration process
 const usersInRegistration: Map<string, RegistrationStep> = new Map();
 
 // Map to store partial registration data
-const registrationData: Map<string, { name?: string; phone?: string; profession?: string; subProfession?: string }> = new Map();
+const registrationData: Map<string, { 
+    name?: string; 
+    phone?: string; 
+    aadhaar?: string;
+    trade?: string;
+    experience?: string;
+    availability?: string;
+    selfiePath?: string;
+}> = new Map();
 
 // Check if user is in registration flow
 export function isUserRegistering(userPhone: string): boolean {
@@ -25,38 +41,30 @@ export function startUserRegistration(userPhone: string, startStep: Registration
 
 // Move to next registration step
 export function moveToNextStep(userPhone: string): void {
+    const steps: RegistrationStep[] = ['name', 'aadhaar', 'trade', 'experience', 'availability', 'selfie', 'review'];
     const currentStep = usersInRegistration.get(userPhone);
-    if (currentStep === 'phone') {
-        usersInRegistration.set(userPhone, 'name');
-    } else if (currentStep === 'name') {
-        usersInRegistration.set(userPhone, 'profession');
-    } else if (currentStep === 'profession') {
-        usersInRegistration.set(userPhone, 'subProfession');
+    if (!currentStep) return;
+
+    const currentIndex = steps.indexOf(currentStep);
+    if (currentIndex >= 0 && currentIndex < steps.length - 1) {
+        usersInRegistration.set(userPhone, steps[currentIndex + 1]);
     }
 }
 
 // Get registration data
-export function getRegistrationData(userPhone: string): { name?: string; phone?: string; profession?: string; subProfession?: string } | null {
+export function getRegistrationData(userPhone: string) {
     return registrationData.get(userPhone) || null;
 }
 
 // Store registration data
-export function storeRegistrationData(userPhone: string, step: RegistrationStep, value: string): void {
+export function storeRegistrationData(userPhone: string, step: string, value: string): void {
     const data = registrationData.get(userPhone) || {};
-    if (step === 'name') {
-        data.name = value;
-    } else if (step === 'phone') {
-        data.phone = value;
-    } else if (step === 'profession') {
-        data.profession = value;
-    } else if (step === 'subProfession') {
-        data.subProfession = value;
-    }
+    (data as any)[step] = value;
     registrationData.set(userPhone, data);
 }
 
 // Complete registration and clean up
-export function completeUserRegistration(userPhone: string): { name?: string; phone?: string; profession?: string; subProfession?: string } | null {
+export function completeUserRegistration(userPhone: string) {
     const data = registrationData.get(userPhone);
     usersInRegistration.delete(userPhone);
     registrationData.delete(userPhone);
