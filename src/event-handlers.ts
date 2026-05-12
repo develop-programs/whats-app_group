@@ -86,11 +86,6 @@ export function setupMessageHandler(client: any): void {
             const chat = await message.getChat();
             const contact = await message.getContact();
             const rawUserPhone = getSenderId(message, contact, chat);
-            
-            // DEBUG: Print contact info to find the real phone number
-            console.log(`[DEBUG] Contact ID: ${contact.id._serialized}, User: ${contact.id.user}, Number: ${contact.number}`);
-            console.log(`[DEBUG] Message Author: ${message.author}, From: ${message.from}`);
-
             const userPhone = normalizeUserid(rawUserPhone);
             const sender = contact.name || contact.pushname || userPhone;
 
