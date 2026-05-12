@@ -56,11 +56,30 @@ export function setupReadyHandler(client: any): void {
     });
 }
 
+<<<<<<< HEAD
 // Helper to normalize user IDs (handles @lid and @c.us interchangeably)
 function normalizeUserid(id: string): string {
     if (!id) return id;
     if (id.includes('@g.us')) return id; // Keep group IDs as is
     return id.split('@')[0] + '@c.us'; // Force user IDs to @c.us format
+=======
+async function startRegistrationFlow(userPhone: string, message: any): Promise<void> {
+    startUserRegistration(userPhone);
+    const step = getUserRegistrationStep(userPhone);
+    console.log(`[REG] Registration started for ${userPhone}, initial step: ${step}`);
+
+    const namePrompt = t('register.askName', userPhone);
+    console.log(`[REG] Sending name prompt to ${userPhone}: "${namePrompt}"`);
+    await message.reply(namePrompt);
+    console.log(`[REG] Name prompt sent successfully`);
+}
+
+function getSenderId(message: any, contact: any, chat: any): string {
+    if (chat?.isGroup) {
+        return message.author || contact?.id?._serialized || message.from;
+    }
+    return message.from;
+>>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
 }
 
 // Handle incoming messages for registration
@@ -78,9 +97,14 @@ export function setupMessageHandler(client: any): void {
             // Only process messages from target group
             if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
                 const contact = await message.getContact();
+<<<<<<< HEAD
                 const sender = contact.name || contact.pushname || message.from;
                 const rawUserPhone = message.author || message.from;
                 const userPhone = normalizeUserid(rawUserPhone);
+=======
+                const userPhone = getSenderId(message, contact, chat);
+                const sender = contact.name || contact.pushname || userPhone;
+>>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
 
                 logActivity(`Message from ${sender}: ${message.body}`);
                 console.log(`[MSG] From: ${sender} (${userPhone}), Body: "${message.body}"`);
@@ -100,12 +124,9 @@ export function setupMessageHandler(client: any): void {
                     const selectedLanguage = handleLanguageSelection(userPhone, message.body);
                     if (selectedLanguage) {
                         console.log(`[LANG] Language selected: ${selectedLanguage} for ${userPhone}`);
-                        const confirmMsg = selectedLanguage === 'en'
-                            ? 'Language set to English ✓'
-                            : 'भाषा हिंदी में सेट की गई है ✓';
-                        await message.reply(confirmMsg);
                         logActivity(`${sender} selected language: ${selectedLanguage}`);
 
+<<<<<<< HEAD
                         // Start registration after language selection
                         startUserRegistration(userPhone);
                         const step = getUserRegistrationStep(userPhone);
@@ -122,6 +143,9 @@ export function setupMessageHandler(client: any): void {
                     } else if (message.body.trim() === '1' || message.body.trim() === '2') {
                          // This case shouldn't really happen with the new logic, but for safety:
                          console.log(`[LANG] Re-trying language selection for ${userPhone}`);
+=======
+                        await startRegistrationFlow(userPhone, message);
+>>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
                     } else {
                         console.log(`[LANG] Invalid language selection from ${userPhone}: "${message.body}"`);
                         const msg = t('register.selectLanguage', userPhone);
@@ -129,6 +153,17 @@ export function setupMessageHandler(client: any): void {
                         await message.reply(msg);
                     }
                     return;
+                }
+
+                // Fallback: accept language selection even without waiting state
+                if (!isUserRegistering(userPhone)) {
+                    const selectedLanguage = handleLanguageSelection(userPhone, message.body);
+                    if (selectedLanguage) {
+                        console.log(`[LANG] Language selected without waiting state: ${selectedLanguage} for ${userPhone}`);
+                        logActivity(`${sender} selected language: ${selectedLanguage}`);
+                        await startRegistrationFlow(userPhone, message);
+                        return;
+                    }
                 }
 
                 // Step 2: Check if user is in registration flow
@@ -146,7 +181,8 @@ export function setupMessageHandler(client: any): void {
                             const nextStep = getUserRegistrationStep(userPhone);
                             console.log(`[REG] Moved from name to: ${nextStep}`);
 
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            // Shorter delay for better automation flow
+                            await new Promise(resolve => setTimeout(resolve, 500));
 
                             const phonePrompt = t('register.askPhone', userPhone);
                             console.log(`[REG] Sending phone prompt: "${phonePrompt}"`);
@@ -160,7 +196,8 @@ export function setupMessageHandler(client: any): void {
                             const nextStep = getUserRegistrationStep(userPhone);
                             console.log(`[REG] Moved from phone to: ${nextStep}`);
 
-                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            // Shorter delay for better automation flow
+                            await new Promise(resolve => setTimeout(resolve, 500));
 
                             const rolePrompt = t('register.askRole', userPhone);
                             console.log(`[REG] Sending role prompt: "${rolePrompt}"`);
