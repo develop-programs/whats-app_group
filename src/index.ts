@@ -1,3 +1,5 @@
+// Entry point for the WhatsApp Registration Bot
+import { t } from './language.js'; // Import language first to initialize translations
 import { initializeClient, destroyClient } from './client.js';
 import {
     setupQRHandler,
@@ -9,7 +11,6 @@ import {
     setupGroupUpdateHandler,
     setupDisconnectHandler,
 } from './event-handlers.js';
-import { t } from './language.js';
 
 // Initialize WhatsApp client
 console.log(t('system.initializingClient'));
