@@ -11,6 +11,7 @@ export function initializeClient() {
         puppeteer: {
             handleSIGINT: CONFIG.PUPPETEER_ARGS.handleSIGINT,
             args: CONFIG.PUPPETEER_ARGS.args,
+          protocolTimeout: CONFIG.PUPPETEER_ARGS.protocolTimeout,
         },
     });
 

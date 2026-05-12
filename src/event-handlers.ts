@@ -56,6 +56,13 @@ export function setupReadyHandler(client: any): void {
     });
 }
 
+// Helper to normalize user IDs (handles @lid and @c.us interchangeably)
+function normalizeUserid(id: string): string {
+    if (!id) return id;
+    if (id.includes('@g.us')) return id; // Keep group IDs as is
+    return id.split('@')[0] + '@c.us'; // Force user IDs to @c.us format
+}
+
 // Handle incoming messages for registration
 export function setupMessageHandler(client: any): void {
     client.on('message', async (message: any) => {
@@ -72,14 +79,24 @@ export function setupMessageHandler(client: any): void {
             if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
                 const contact = await message.getContact();
                 const sender = contact.name || contact.pushname || message.from;
-                const userPhone = message.from;
+                const rawUserPhone = message.author || message.from;
+                const userPhone = normalizeUserid(rawUserPhone);
 
                 logActivity(`Message from ${sender}: ${message.body}`);
                 console.log(`[MSG] From: ${sender} (${userPhone}), Body: "${message.body}"`);
 
                 // Step 1: Check if user is waiting for language selection
-                if (isWaitingForLanguageSelection(userPhone)) {
-                    console.log(`[LANG] User ${userPhone} is waiting for language selection`);
+                let isWaiting = isWaitingForLanguageSelection(userPhone);
+                
+                // Proactive check: If user sends 1 or 2, they might have just joined but the event was delayed/missed
+                if (!isWaiting && (message.body.trim() === '1' || message.body.trim() === '2')) {
+                    console.log(`[MSG] Proactively marking ${userPhone} for language selection as they sent: ${message.body}`);
+                    markUserWaitingForLanguage(userPhone);
+                    isWaiting = true;
+                }
+
+                if (isWaiting) {
+                    console.log(`[LANG] User ${userPhone} is processing language selection`);
                     const selectedLanguage = handleLanguageSelection(userPhone, message.body);
                     if (selectedLanguage) {
                         console.log(`[LANG] Language selected: ${selectedLanguage} for ${userPhone}`);
@@ -102,6 +119,9 @@ export function setupMessageHandler(client: any): void {
                         console.log(`[REG] Sending name prompt to ${userPhone}: "${namePrompt}"`);
                         await message.reply(namePrompt);
                         console.log(`[REG] Name prompt sent successfully`);
+                    } else if (message.body.trim() === '1' || message.body.trim() === '2') {
+                         // This case shouldn't really happen with the new logic, but for safety:
+                         console.log(`[LANG] Re-trying language selection for ${userPhone}`);
                     } else {
                         console.log(`[LANG] Invalid language selection from ${userPhone}: "${message.body}"`);
                         const msg = t('register.selectLanguage', userPhone);
@@ -218,7 +238,9 @@ export function setupGroupJoinHandler(client: any): void {
 
                 // Mark members as waiting for language selection
                 newMembers.forEach((member: any) => {
-                    markUserWaitingForLanguage(member.id._serialized);
+                    const normalizedId = normalizeUserid(member.id._serialized);
+                    console.log(`[JOIN] Marking ${normalizedId} as waiting for language selection`);
+                    markUserWaitingForLanguage(normalizedId);
                 });
             } catch (err) {
                 console.error('Error sending welcome message:', err);

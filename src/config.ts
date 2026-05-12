@@ -1,10 +1,10 @@
 // Application configuration constants
 export const CONFIG = {
     // Target group name to monitor and manage
-    TARGET_GROUP_NAME: 'testing group',
+    TARGET_GROUP_NAME: 'Hello My Group',
 
     // Initial participants to add when creating the group (phone numbers with country code)
-    INITIAL_PARTICIPANTS: ['+919294512259'],
+    INITIAL_PARTICIPANTS: ['+917470449162'],
 
     // Log file path for activity tracking
     LOG_FILE: 'group_activity.log',
@@ -13,6 +13,7 @@ export const CONFIG = {
     PUPPETEER_ARGS: {
         handleSIGINT: false,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        protocolTimeout: 0, 
     },
 
     // Delay for group sync stability (milliseconds)

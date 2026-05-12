@@ -1,6 +1,6 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { Language } from './language.js';
+import { Language } from './language-types.js';
 
 const LANGUAGE_PREFS_FILE = join(process.cwd(), 'language_preferences.json');
 

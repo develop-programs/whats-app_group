@@ -1,16 +1,23 @@
 // Language selection state tracking
-import { setUserLanguage, Language } from './language.js';
+import { setUserLanguage } from './language.js';
+import { Language } from './language-types.js';
 
 // Map to track users waiting for language selection
 const usersWaitingForLanguage: Map<string, boolean> = new Map();
 
 // Check if user is awaiting language selection
 export function isWaitingForLanguageSelection(userPhone: string): boolean {
-    return usersWaitingForLanguage.get(userPhone) || false;
+    const isWaiting = usersWaitingForLanguage.get(userPhone) || false;
+    console.log(`[DEBUG] Checking if ${userPhone} is waiting for language: ${isWaiting}`);
+    if (!isWaiting) {
+        console.log(`[DEBUG] Current waiting list:`, Array.from(usersWaitingForLanguage.keys()));
+    }
+    return isWaiting;
 }
 
 // Mark user as waiting for language selection
 export function markUserWaitingForLanguage(userPhone: string): void {
+    console.log(`[DEBUG] Marking ${userPhone} as waiting for language selection`);
     usersWaitingForLanguage.set(userPhone, true);
 }
 

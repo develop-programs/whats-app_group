@@ -1,7 +1,6 @@
 // Language configuration and translations
 import { getUserLanguagePreference, updateUserLanguagePreference } from './language-storage.js';
-
-export type Language = 'en' | 'hi';
+import { Language } from './language-types.js';
 
 // User language preferences storage
 const userLanguagePreferences: Map<string, Language> = new Map();
@@ -48,7 +47,7 @@ const translations: Record<Language, Record<string, string>> = {
         'chores.details': 'DETAILS:',
 
         // Registration
-        'register.selectLanguage': 'Welcome! Please select your preferred language:\n\n1️⃣ English (अंग्रेजी में जारी रखने के लिए "2" टाइप करें)\n\nReply with: 1 for English',
+        'register.selectLanguage': 'Welcome! Please select your preferred language / स्वागत है! कृपया अपनी पसंदीदा भाषा चुनें:\n\n1️⃣ English के लिए "1" टाइप करें\n2️⃣ Hindi के लिए "2" टाइप करें\n\nReply with: 1 or 2',
         'register.languageSelected': 'Language set to English',
         'register.askName': 'Please enter your full name:',
         'register.askPhone': 'Please enter your phone number (with country code, e.g., +919876543210):',
@@ -136,8 +135,8 @@ const translations: Record<Language, Record<string, string>> = {
         'chores.details': 'विवरण:',
 
         // Registration
-        'register.selectLanguage': 'स्वागत है! कृपया अपनी पसंदीदा भाषा चुनें:\n\n1️⃣ English\n2️⃣ हिंदी\n\nउत्तर दें: 1 English के लिए या 2 हिंदी के लिए',
-        'register.languageSelected': 'भाषा हिंदी में सेट की गई है',
+        'register.selectLanguage': 'Welcome! Please select your preferred language / स्वागत है! कृपया अपनी पसंदीदा भाषा चुनें:\n\n1️⃣ English के लिए "1" टाइप करें\n2️⃣ Hindi के लिए "2" टाइप करें\n\nReply with: 1 or 2',
+        'register.languageSelected': 'Language set to English',
         'register.askName': 'कृपया अपना पूरा नाम दर्ज करें:',
         'register.askPhone': 'कृपया अपना फोन नंबर दर्ज करें (देश कोड के साथ, जैसे +919876543210):',
         'register.askRole': 'परिवार में आपकी भूमिका क्या है? (जैसे माता-पिता, बच्चा, दादा-दादी):',
