@@ -17,8 +17,7 @@ import {
     startUserRegistration,
     moveToNextStep,
     storeRegistrationData,
-    completeUserRegistration,
-    getRegistrationData
+    completeUserRegistration
 } from './registration-tracker.js';
 
 // Handle QR code display for authentication
@@ -67,7 +66,12 @@ async function startSelfRegistration(userPhone: string, message: any): Promise<v
 
 function getSenderId(message: any, contact: any, chat: any): string {
     if (chat?.isGroup) {
-        return message.author || contact?.id?._serialized || message.from;
+        // Prioritize the contact's real ID over the message author (which might be an @lid)
+        const realId = contact?.id?._serialized;
+        if (realId && !realId.includes('@lid')) {
+            return realId;
+        }
+        return message.author || realId || message.from;
     }
     return message.from;
 }
@@ -80,23 +84,30 @@ export function setupMessageHandler(client: any): void {
             if (message.fromMe) return;
 
             const chat = await message.getChat();
+            const contact = await message.getContact();
+            const rawUserPhone = getSenderId(message, contact, chat);
+            
+            // DEBUG: Print contact info to find the real phone number
+            console.log(`[DEBUG] Contact ID: ${contact.id._serialized}, User: ${contact.id.user}, Number: ${contact.number}`);
+            console.log(`[DEBUG] Message Author: ${message.author}, From: ${message.from}`);
 
-            // Only process messages from target group or DMs (for registration)
+            const userPhone = normalizeUserid(rawUserPhone);
+            const sender = contact.name || contact.pushname || userPhone;
+
+            console.log(`[MSG] Processing: "${message.body}" from ${sender}`);
+
+            // Handle /register command - Move OUTSIDE group check to work anywhere
+            if (message.body.trim() === '/register') {
+                console.log(`[CMD] Register command received from ${userPhone}`);
+                await startSelfRegistration(userPhone, message);
+                return;
+            }
+
+            // Only process other registration logic from target group or DMs
             const isFromTargetGroup = chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME;
             const isDirectMessage = !chat.isGroup;
 
             if (isFromTargetGroup || isDirectMessage) {
-                const contact = await message.getContact();
-                const rawUserPhone = getSenderId(message, contact, chat);
-                const userPhone = normalizeUserid(rawUserPhone);
-                const sender = contact.name || contact.pushname || userPhone;
-
-                // Handle /register command
-                if (message.body.trim() === '/register') {
-                    await startSelfRegistration(userPhone, message);
-                    return;
-                }
-
                 // Step 1: Check if user is waiting for language selection
                 let isWaiting = isWaitingForLanguageSelection(userPhone);
 
@@ -210,7 +221,7 @@ export function setupMessageHandler(client: any): void {
                                     await message.reply(t('register.confirmation', userPhone));
                                     
                                     if (regData) {
-                                        const cleanPhone = userPhone.split('@')[0];
+                                        const cleanPhone = '+' + userPhone.split('@')[0];
                                         const adminMsg = `🚨 *NEW WORKER ONBOARDING* 🚨\n\n` +
                                             `Name: ${regData.name}\n` +
                                             `Phone: ${cleanPhone}\n` +

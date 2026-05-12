@@ -6,6 +6,7 @@ export type RegistrationStep =
     | 'experience' 
     | 'availability' 
     | 'selfie' 
+    | 'selfiePath' // Added to allow storing path
     | 'review';
 
 // Map to track users in registration process
@@ -56,7 +57,7 @@ export function getRegistrationData(userPhone: string) {
 }
 
 // Store registration data
-export function storeRegistrationData(userPhone: string, step: RegistrationStep, value: string): void {
+export function storeRegistrationData(userPhone: string, step: string, value: string): void {
     const data = registrationData.get(userPhone) || {};
     (data as any)[step] = value;
     registrationData.set(userPhone, data);

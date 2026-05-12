@@ -49,7 +49,7 @@ export const translations: Record<Language, Record<string, string>> = {
         'register.askExperience': 'How many years of experience do you have?\nआपको कितने वर्षों का अनुभव है? (जैसे: 5)',
         'register.askAvailability': 'Please enter your availability (e.g., Mon-Sat, 9 AM - 6 PM):\nकृपया अपनी उपलब्धता दर्ज करें (जैसे: सोम-शनि, सुबह 9 - शाम 6):',
         'register.askSelfie': '📸 Please send a clear Selfie photo of yourself:\n📸 कृपया अपनी एक साफ़ सेल्फी फोटो भेजें:',
-        'register.confirmation': '✅ Thank you! Your profile is under review. It will be activated within 24 hours.\n✅ धन्यवाद! आपकी प्रोफाइल की समीक्षा की जा रही है। इसे 24 घंटों के भीतर सक्रिय कर दिया जाएगा।',
+        'register.confirmation': '✅ Thank you for your registration! Your profile is now being processed.\n✅ आपके पंजीकरण के लिए धन्यवाद! आपकी प्रोफाइल अब प्रोसेस की जा रही है।',
         'register.activated': '🎉 Welcome to Hindustaan Seva! Your profile is now active. You will start receiving job notifications soon.\n🎉 हिंदुस्तान सेवा में आपका स्वागत है! आपकी प्रोफाइल अब सक्रिय है। आपको जल्द ही काम की सूचनाएं मिलना शुरू हो जाएंगी।',
         'update.availability.success': '✅ Your availability has been updated successfully.\n✅ आपकी उपलब्धता सफलतापूर्वक अपडेट कर दी गई है।',
         'register.error': 'Error during registration. Please try again.',
