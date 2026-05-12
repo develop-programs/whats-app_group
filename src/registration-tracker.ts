@@ -1,11 +1,11 @@
 // User registration state tracking
-export type RegistrationStep = 'name' | 'phone' | 'role';
+export type RegistrationStep = 'name' | 'phone' | 'profession' | 'subProfession';
 
 // Map to track users in registration process
 const usersInRegistration: Map<string, RegistrationStep> = new Map();
 
 // Map to store partial registration data
-const registrationData: Map<string, { name?: string; phone?: string; role?: string }> = new Map();
+const registrationData: Map<string, { name?: string; phone?: string; profession?: string; subProfession?: string }> = new Map();
 
 // Check if user is in registration flow
 export function isUserRegistering(userPhone: string): boolean {
@@ -18,23 +18,25 @@ export function getUserRegistrationStep(userPhone: string): RegistrationStep | n
 }
 
 // Start registration for user
-export function startUserRegistration(userPhone: string): void {
-    usersInRegistration.set(userPhone, 'name');
+export function startUserRegistration(userPhone: string, startStep: RegistrationStep = 'name'): void {
+    usersInRegistration.set(userPhone, startStep);
     registrationData.set(userPhone, {});
 }
 
 // Move to next registration step
 export function moveToNextStep(userPhone: string): void {
     const currentStep = usersInRegistration.get(userPhone);
-    if (currentStep === 'name') {
-        usersInRegistration.set(userPhone, 'phone');
-    } else if (currentStep === 'phone') {
-        usersInRegistration.set(userPhone, 'role');
+    if (currentStep === 'phone') {
+        usersInRegistration.set(userPhone, 'name');
+    } else if (currentStep === 'name') {
+        usersInRegistration.set(userPhone, 'profession');
+    } else if (currentStep === 'profession') {
+        usersInRegistration.set(userPhone, 'subProfession');
     }
 }
 
 // Get registration data
-export function getRegistrationData(userPhone: string): { name?: string; phone?: string; role?: string } | null {
+export function getRegistrationData(userPhone: string): { name?: string; phone?: string; profession?: string; subProfession?: string } | null {
     return registrationData.get(userPhone) || null;
 }
 
@@ -45,14 +47,16 @@ export function storeRegistrationData(userPhone: string, step: RegistrationStep,
         data.name = value;
     } else if (step === 'phone') {
         data.phone = value;
-    } else if (step === 'role') {
-        data.role = value;
+    } else if (step === 'profession') {
+        data.profession = value;
+    } else if (step === 'subProfession') {
+        data.subProfession = value;
     }
     registrationData.set(userPhone, data);
 }
 
 // Complete registration and clean up
-export function completeUserRegistration(userPhone: string): { name?: string; phone?: string; role?: string } | null {
+export function completeUserRegistration(userPhone: string): { name?: string; phone?: string; profession?: string; subProfession?: string } | null {
     const data = registrationData.get(userPhone);
     usersInRegistration.delete(userPhone);
     registrationData.delete(userPhone);

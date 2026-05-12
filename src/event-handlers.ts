@@ -2,7 +2,6 @@ import qrcode from 'qrcode-terminal';
 import { CONFIG } from './config.js';
 import { logActivity } from './logger.js';
 import { syncGroup } from './group-service.js';
-import { registerFamilyMember } from './chores-service.js';
 import { initializeChoresStorage } from './chores-storage.js';
 import { t } from './language.js';
 import {
@@ -16,7 +15,8 @@ import {
     startUserRegistration,
     moveToNextStep,
     storeRegistrationData,
-    completeUserRegistration
+    completeUserRegistration,
+    getRegistrationData
 } from './registration-tracker.js';
 
 // Handle QR code display for authentication
@@ -56,15 +56,18 @@ export function setupReadyHandler(client: any): void {
     });
 }
 
-<<<<<<< HEAD
 // Helper to normalize user IDs (handles @lid and @c.us interchangeably)
 function normalizeUserid(id: string): string {
     if (!id) return id;
     if (id.includes('@g.us')) return id; // Keep group IDs as is
     return id.split('@')[0] + '@c.us'; // Force user IDs to @c.us format
-=======
+}
+
 async function startRegistrationFlow(userPhone: string, message: any): Promise<void> {
-    startUserRegistration(userPhone);
+    startUserRegistration(userPhone, 'name'); // Self-registration starts at name
+    const actualPhone = userPhone.split('@')[0];
+    storeRegistrationData(userPhone, 'phone', '+' + actualPhone); // Pre-fill phone number
+    
     const step = getUserRegistrationStep(userPhone);
     console.log(`[REG] Registration started for ${userPhone}, initial step: ${step}`);
 
@@ -79,7 +82,6 @@ function getSenderId(message: any, contact: any, chat: any): string {
         return message.author || contact?.id?._serialized || message.from;
     }
     return message.from;
->>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
 }
 
 // Handle incoming messages for registration
@@ -97,17 +99,26 @@ export function setupMessageHandler(client: any): void {
             // Only process messages from target group
             if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
                 const contact = await message.getContact();
-<<<<<<< HEAD
-                const sender = contact.name || contact.pushname || message.from;
-                const rawUserPhone = message.author || message.from;
+                const rawUserPhone = getSenderId(message, contact, chat);
                 const userPhone = normalizeUserid(rawUserPhone);
-=======
-                const userPhone = getSenderId(message, contact, chat);
                 const sender = contact.name || contact.pushname || userPhone;
->>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
 
                 logActivity(`Message from ${sender}: ${message.body}`);
                 console.log(`[MSG] From: ${sender} (${userPhone}), Body: "${message.body}"`);
+
+                // Handle /register command for internal members
+                if (message.body.trim() === '/register') {
+                    const participant = chat.participants.find((p: any) => p.id._serialized === userPhone);
+                    if (participant && participant.isAdmin) {
+                        startUserRegistration(userPhone, 'phone');
+                        const msg = t('register.askPhoneAdmin', userPhone);
+                        await message.reply(msg);
+                        return;
+                    } else {
+                        await message.reply(t('register.noPermission', userPhone));
+                        return;
+                    }
+                }
 
                 // Step 1: Check if user is waiting for language selection
                 let isWaiting = isWaitingForLanguageSelection(userPhone);
@@ -126,26 +137,10 @@ export function setupMessageHandler(client: any): void {
                         console.log(`[LANG] Language selected: ${selectedLanguage} for ${userPhone}`);
                         logActivity(`${sender} selected language: ${selectedLanguage}`);
 
-<<<<<<< HEAD
-                        // Start registration after language selection
-                        startUserRegistration(userPhone);
-                        const step = getUserRegistrationStep(userPhone);
-                        console.log(`[REG] Registration started for ${userPhone}, initial step: ${step}`);
-
-                        // Small delay before asking for name
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-
-                        // Ask for name
-                        const namePrompt = t('register.askName', userPhone);
-                        console.log(`[REG] Sending name prompt to ${userPhone}: "${namePrompt}"`);
-                        await message.reply(namePrompt);
-                        console.log(`[REG] Name prompt sent successfully`);
+                        await startRegistrationFlow(userPhone, message);
                     } else if (message.body.trim() === '1' || message.body.trim() === '2') {
                          // This case shouldn't really happen with the new logic, but for safety:
                          console.log(`[LANG] Re-trying language selection for ${userPhone}`);
-=======
-                        await startRegistrationFlow(userPhone, message);
->>>>>>> f100940 (Refactor registration flow and improve message handling in event handlers)
                     } else {
                         console.log(`[LANG] Invalid language selection from ${userPhone}: "${message.body}"`);
                         const msg = t('register.selectLanguage', userPhone);
@@ -174,58 +169,84 @@ export function setupMessageHandler(client: any): void {
                     console.log(`[REG] User ${userPhone} in registration at step: ${currentStep}, input: "${userInput}"`);
 
                     try {
-                        if (currentStep === 'name') {
-                            console.log(`[REG] Processing NAME input: "${userInput}"`);
-                            storeRegistrationData(userPhone, 'name', userInput);
-                            moveToNextStep(userPhone);
-                            const nextStep = getUserRegistrationStep(userPhone);
-                            console.log(`[REG] Moved from name to: ${nextStep}`);
-
-                            // Shorter delay for better automation flow
-                            await new Promise(resolve => setTimeout(resolve, 500));
-
-                            const phonePrompt = t('register.askPhone', userPhone);
-                            console.log(`[REG] Sending phone prompt: "${phonePrompt}"`);
-                            await message.reply(phonePrompt);
-                            console.log(`[REG] Phone prompt sent successfully`);
-                            return;
-                        } else if (currentStep === 'phone') {
+                        if (currentStep === 'phone') {
                             console.log(`[REG] Processing PHONE input: "${userInput}"`);
                             storeRegistrationData(userPhone, 'phone', userInput);
                             moveToNextStep(userPhone);
                             const nextStep = getUserRegistrationStep(userPhone);
                             console.log(`[REG] Moved from phone to: ${nextStep}`);
 
-                            // Shorter delay for better automation flow
                             await new Promise(resolve => setTimeout(resolve, 500));
 
-                            const rolePrompt = t('register.askRole', userPhone);
-                            console.log(`[REG] Sending role prompt: "${rolePrompt}"`);
-                            await message.reply(rolePrompt);
-                            console.log(`[REG] Role prompt sent successfully`);
+                            const namePrompt = t('register.askName', userPhone);
+                            console.log(`[REG] Sending name prompt: "${namePrompt}"`);
+                            await message.reply(namePrompt);
                             return;
-                        } else if (currentStep === 'role') {
-                            console.log(`[REG] Processing ROLE input: "${userInput}"`);
-                            storeRegistrationData(userPhone, 'role', userInput);
+                        } else if (currentStep === 'name') {
+                            console.log(`[REG] Processing NAME input: "${userInput}"`);
+                            storeRegistrationData(userPhone, 'name', userInput);
+                            moveToNextStep(userPhone);
+                            const nextStep = getUserRegistrationStep(userPhone);
+                            console.log(`[REG] Moved from name to: ${nextStep}`);
+
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            const profPrompt = t('register.askProfession', userPhone);
+                            console.log(`[REG] Sending profession prompt: "${profPrompt}"`);
+                            await message.reply(profPrompt);
+                            return;
+                        } else if (currentStep === 'profession') {
+                            console.log(`[REG] Processing PROFESSION input: "${userInput}"`);
+                            if (!['1', '2', '3'].includes(userInput)) {
+                                await message.reply(t('register.invalidOption', userPhone));
+                                return;
+                            }
+                            const profMap: Record<string, string> = { '1': 'Electrician', '2': 'Plumber', '3': 'House Work' };
+                            storeRegistrationData(userPhone, 'profession', profMap[userInput]);
+                            moveToNextStep(userPhone);
+
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            const subProfPrompt = t(`register.askSubProfession.${userInput}`, userPhone);
+                            console.log(`[REG] Sending sub-profession prompt: "${subProfPrompt}"`);
+                            await message.reply(subProfPrompt);
+                            return;
+                        } else if (currentStep === 'subProfession') {
+                            console.log(`[REG] Processing SUB-PROFESSION input: "${userInput}"`);
+                            if (!['1', '2', '3'].includes(userInput)) {
+                                await message.reply(t('register.invalidOption', userPhone));
+                                return;
+                            }
+                            
+                            const regDataMap = getRegistrationData(userPhone);
+                            const currentProf = regDataMap?.profession;
+                            
+                            let subProfStr = userInput as string;
+                            if (currentProf === 'Electrician') {
+                                subProfStr = ({ '1': 'Wiring', '2': 'Appliance Repair', '3': 'Installation' } as Record<string, string>)[userInput as string] || userInput;
+                            } else if (currentProf === 'Plumber') {
+                                subProfStr = ({ '1': 'Pipe Leakage', '2': 'Bathroom Fittings', '3': 'Water Tank' } as Record<string, string>)[userInput as string] || userInput;
+                            } else if (currentProf === 'House Work') {
+                                subProfStr = ({ '1': 'Cleaning', '2': 'Cooking', '3': 'Babysitting' } as Record<string, string>)[userInput as string] || userInput;
+                            }
+
+                            storeRegistrationData(userPhone, 'subProfession', subProfStr);
 
                             // Complete registration
                             const regData = completeUserRegistration(userPhone);
                             console.log(`[REG] Registration completed with data:`, regData);
 
-                            if (regData && regData.name && regData.phone && regData.role) {
-                                // Register in the system
-                                registerFamilyMember(regData.name, regData.phone, regData.role);
-                                console.log(`[REG] User saved to system: ${regData.name}`);
-
+                            if (regData && regData.name && regData.phone && regData.profession && regData.subProfession) {
                                 // Send success message
                                 const successMsg = t('register.success', userPhone)
                                     .replace('{name}', regData.name)
                                     .replace('{phone}', regData.phone)
-                                    .replace('{role}', regData.role);
+                                    .replace('{profession}', regData.profession)
+                                    .replace('{subProfession}', regData.subProfession);
                                 console.log(`[REG] Sending success message`);
                                 await message.reply(successMsg);
-                                logActivity(`User registered: ${regData.name} (${regData.role})`);
-                                console.log(`[REG] SUCCESS: User ${userPhone} fully registered`);
+                                logActivity(`Worker registered: ${regData.name} (${regData.profession} - ${regData.subProfession})`);
+                                console.log(`[REG] SUCCESS: Worker ${userPhone} fully registered`);
                             } else {
                                 console.error(`[REG] Registration data incomplete:`, regData);
                             }
