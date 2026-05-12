@@ -3,3 +3,6 @@ node_modules
 .wwebjs_cache
 
 dist
+uploads
+group_activity.log
+.env

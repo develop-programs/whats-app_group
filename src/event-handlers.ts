@@ -5,6 +5,7 @@ import { CONFIG } from './config.js';
 import { logActivity } from './logger.js';
 import { syncGroup } from './group-service.js';
 import { t } from './language.js';
+import { appendToGoogleSheet } from './google-sheets.js';
 import { normalizeUserid } from './utils.js';
 import {
     isWaitingForLanguageSelection,
@@ -78,6 +79,7 @@ function getSenderId(message: any, contact: any, chat: any): string {
 
 // Handle incoming messages for registration
 export function setupMessageHandler(client: any): void {
+    console.log('>>> MESSAGE HANDLER VERSION 2.0 (LID FIX ACTIVE) <<<');
     client.on('message', async (message: any) => {
         try {
             // Ignore messages from the bot itself
@@ -227,6 +229,18 @@ export function setupMessageHandler(client: any): void {
                                             `*Action Required*: Review and initiate e-KYC. Photo: ${fileName}`;
                                         
                                         await chat.sendMessage(adminMsg);
+
+                                        // Save to Google Sheets
+                                        await appendToGoogleSheet({
+                                            name: regData.name || '',
+                                            phone: cleanPhone,
+                                            aadhaar: regData.aadhaar || '',
+                                            trade: regData.trade || '',
+                                            experience: regData.experience || '',
+                                            availability: regData.availability || '',
+                                            selfiePath: fileName
+                                        });
+
                                         logActivity(`Worker submission: ${regData.name} (${regData.trade})`);
                                     }
                                 } else {
