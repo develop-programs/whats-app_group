@@ -1,0 +1,265 @@
+import qrcode from 'qrcode-terminal';
+import { CONFIG } from './config.js';
+import { logActivity } from './logger.js';
+import { syncGroup } from './group-service.js';
+import { registerFamilyMember } from './chores-service.js';
+import { initializeChoresStorage } from './chores-storage.js';
+import { t } from './language.js';
+import {
+    isWaitingForLanguageSelection,
+    handleLanguageSelection,
+    markUserWaitingForLanguage
+} from './language-selector.js';
+import {
+    isUserRegistering,
+    getUserRegistrationStep,
+    startUserRegistration,
+    moveToNextStep,
+    storeRegistrationData,
+    completeUserRegistration
+} from './registration-tracker.js';
+
+// Handle QR code display for authentication
+export function setupQRHandler(client: any): void {
+    client.on('qr', (qr: string) => {
+        console.log('Scan the QR code below to log in:');
+        qrcode.generate(qr, { small: true });
+    });
+}
+
+// Handle successful authentication
+export function setupAuthenticationHandlers(client: any): void {
+    client.on('authenticated', () => {
+        console.log('Authenticated successfully');
+    });
+
+    client.on('auth_failure', (msg: string) => {
+        console.error('Authentication failure:', msg);
+    });
+}
+
+// Handle client ready state
+export function setupReadyHandler(client: any): void {
+    client.on('ready', async () => {
+        console.log('WhatsApp Client is ready');
+
+        // Initialize chores storage
+        initializeChoresStorage();
+        console.log('Chores system initialized');
+
+        const groupChat = await syncGroup(client);
+
+        if (groupChat) {
+            logActivity(`System: Bot is online and monitoring "${groupChat.name}"`);
+            console.log(`Now listening for messages in: ${groupChat.name}`);
+        }
+    });
+}
+
+// Handle incoming messages for registration
+export function setupMessageHandler(client: any): void {
+    client.on('message', async (message: any) => {
+        try {
+            // Ignore messages from the bot itself
+            if (message.fromMe) {
+                console.log(`[BOT] Ignoring bot's own message: ${message.body}`);
+                return;
+            }
+
+            const chat = await message.getChat();
+
+            // Only process messages from target group
+            if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
+                const contact = await message.getContact();
+                const sender = contact.name || contact.pushname || message.from;
+                const userPhone = message.from;
+
+                logActivity(`Message from ${sender}: ${message.body}`);
+                console.log(`[MSG] From: ${sender} (${userPhone}), Body: "${message.body}"`);
+
+                // Step 1: Check if user is waiting for language selection
+                if (isWaitingForLanguageSelection(userPhone)) {
+                    console.log(`[LANG] User ${userPhone} is waiting for language selection`);
+                    const selectedLanguage = handleLanguageSelection(userPhone, message.body);
+                    if (selectedLanguage) {
+                        console.log(`[LANG] Language selected: ${selectedLanguage} for ${userPhone}`);
+                        const confirmMsg = selectedLanguage === 'en'
+                            ? 'Language set to English ✓'
+                            : 'भाषा हिंदी में सेट की गई है ✓';
+                        await message.reply(confirmMsg);
+                        logActivity(`${sender} selected language: ${selectedLanguage}`);
+
+                        // Start registration after language selection
+                        startUserRegistration(userPhone);
+                        const step = getUserRegistrationStep(userPhone);
+                        console.log(`[REG] Registration started for ${userPhone}, initial step: ${step}`);
+
+                        // Small delay before asking for name
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // Ask for name
+                        const namePrompt = t('register.askName', userPhone);
+                        console.log(`[REG] Sending name prompt to ${userPhone}: "${namePrompt}"`);
+                        await message.reply(namePrompt);
+                        console.log(`[REG] Name prompt sent successfully`);
+                    } else {
+                        console.log(`[LANG] Invalid language selection from ${userPhone}: "${message.body}"`);
+                        const msg = t('register.selectLanguage', userPhone);
+                        console.log(`[LANG] Resending language selection prompt`);
+                        await message.reply(msg);
+                    }
+                    return;
+                }
+
+                // Step 2: Check if user is in registration flow
+                if (isUserRegistering(userPhone)) {
+                    const currentStep = getUserRegistrationStep(userPhone);
+                    const userInput = message.body.trim();
+
+                    console.log(`[REG] User ${userPhone} in registration at step: ${currentStep}, input: "${userInput}"`);
+
+                    try {
+                        if (currentStep === 'name') {
+                            console.log(`[REG] Processing NAME input: "${userInput}"`);
+                            storeRegistrationData(userPhone, 'name', userInput);
+                            moveToNextStep(userPhone);
+                            const nextStep = getUserRegistrationStep(userPhone);
+                            console.log(`[REG] Moved from name to: ${nextStep}`);
+
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+
+                            const phonePrompt = t('register.askPhone', userPhone);
+                            console.log(`[REG] Sending phone prompt: "${phonePrompt}"`);
+                            await message.reply(phonePrompt);
+                            console.log(`[REG] Phone prompt sent successfully`);
+                            return;
+                        } else if (currentStep === 'phone') {
+                            console.log(`[REG] Processing PHONE input: "${userInput}"`);
+                            storeRegistrationData(userPhone, 'phone', userInput);
+                            moveToNextStep(userPhone);
+                            const nextStep = getUserRegistrationStep(userPhone);
+                            console.log(`[REG] Moved from phone to: ${nextStep}`);
+
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+
+                            const rolePrompt = t('register.askRole', userPhone);
+                            console.log(`[REG] Sending role prompt: "${rolePrompt}"`);
+                            await message.reply(rolePrompt);
+                            console.log(`[REG] Role prompt sent successfully`);
+                            return;
+                        } else if (currentStep === 'role') {
+                            console.log(`[REG] Processing ROLE input: "${userInput}"`);
+                            storeRegistrationData(userPhone, 'role', userInput);
+
+                            // Complete registration
+                            const regData = completeUserRegistration(userPhone);
+                            console.log(`[REG] Registration completed with data:`, regData);
+
+                            if (regData && regData.name && regData.phone && regData.role) {
+                                // Register in the system
+                                registerFamilyMember(regData.name, regData.phone, regData.role);
+                                console.log(`[REG] User saved to system: ${regData.name}`);
+
+                                // Send success message
+                                const successMsg = t('register.success', userPhone)
+                                    .replace('{name}', regData.name)
+                                    .replace('{phone}', regData.phone)
+                                    .replace('{role}', regData.role);
+                                console.log(`[REG] Sending success message`);
+                                await message.reply(successMsg);
+                                logActivity(`User registered: ${regData.name} (${regData.role})`);
+                                console.log(`[REG] SUCCESS: User ${userPhone} fully registered`);
+                            } else {
+                                console.error(`[REG] Registration data incomplete:`, regData);
+                            }
+                            return;
+                        }
+                    } catch (err) {
+                        console.error(`[REG] Error during registration for ${userPhone}:`, err);
+                        const errorMsg = t('register.error', userPhone);
+                        await message.reply(errorMsg);
+                        return;
+                    }
+                } else {
+                    console.log(`[MSG] User ${userPhone} is not in any registration flow`);
+                }
+            }
+        } catch (err) {
+            console.error('Error in message handler:', err);
+        }
+    });
+}
+
+// Handle new group members joining
+export function setupGroupJoinHandler(client: any): void {
+    client.on('group_join', async (notification: any) => {
+        const chat = await notification.getChat();
+
+        if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
+            console.log(`New member(s) joined "${chat.name}"`);
+
+            try {
+                const newMembers = await Promise.all(
+                    notification.recipientIds.map((id: string) => client.getContactById(id))
+                );
+                const names = newMembers
+                    .map((c: any) => c.name || c.pushname || c.id.user)
+                    .join(', ');
+
+                logActivity(`Join: ${names} joined the group`);
+
+                const mentions = newMembers.map((contact: any) => contact.id._serialized);
+                const firstMemberId = newMembers[0]?.id._serialized;
+
+                // Ask new members for language preference
+                const welcomeText = `${t('register.selectLanguage', firstMemberId)}\n\n${newMembers.map((c: any) => `@${c.id.user}`).join(', ')}`;
+
+                await chat.sendMessage(welcomeText, { mentions });
+
+                // Mark members as waiting for language selection
+                newMembers.forEach((member: any) => {
+                    markUserWaitingForLanguage(member.id._serialized);
+                });
+            } catch (err) {
+                console.error('Error sending welcome message:', err);
+            }
+        }
+    });
+}
+
+// Handle group members leaving
+export function setupGroupLeaveHandler(client: any): void {
+    client.on('group_leave', async (notification: any) => {
+        const chat = await notification.getChat();
+
+        if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
+            const leftMembers = await Promise.all(
+                notification.recipientIds.map((id: string) => client.getContactById(id))
+            );
+            const names = leftMembers
+                .map((c: any) => c.name || c.pushname || c.id.user)
+                .join(', ');
+
+            logActivity(`Leave: ${names} left the group`);
+        }
+    });
+}
+
+// Handle group settings and info changes
+export function setupGroupUpdateHandler(client: any): void {
+    client.on('group_update', async (notification: any) => {
+        const chat = await notification.getChat();
+
+        if (chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME) {
+            logActivity(`Update: Group settings changed (${notification.type})`);
+        }
+    });
+}
+
+// Handle client disconnection
+export function setupDisconnectHandler(client: any): void {
+    client.on('disconnected', (reason: string) => {
+        logActivity(`System: Client disconnected (${reason})`);
+        console.log('Client was logged out:', reason);
+    });
+}
