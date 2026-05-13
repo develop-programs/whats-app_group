@@ -28,6 +28,7 @@ setupDisconnectHandler(client);
 
 // Start client
 client.initialize();
+console.log('Client initialization sent... Waiting for "ready" event.');
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {

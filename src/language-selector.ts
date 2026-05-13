@@ -7,17 +7,11 @@ const usersWaitingForLanguage: Map<string, boolean> = new Map();
 
 // Check if user is awaiting language selection
 export function isWaitingForLanguageSelection(userPhone: string): boolean {
-    const isWaiting = usersWaitingForLanguage.get(userPhone) || false;
-    console.log(`[DEBUG] Checking if ${userPhone} is waiting for language: ${isWaiting}`);
-    if (!isWaiting) {
-        console.log(`[DEBUG] Current waiting list:`, Array.from(usersWaitingForLanguage.keys()));
-    }
-    return isWaiting;
+    return usersWaitingForLanguage.get(userPhone) || false;
 }
 
 // Mark user as waiting for language selection
 export function markUserWaitingForLanguage(userPhone: string): void {
-    console.log(`[DEBUG] Marking ${userPhone} as waiting for language selection`);
     usersWaitingForLanguage.set(userPhone, true);
 }
 

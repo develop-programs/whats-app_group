@@ -38,11 +38,19 @@ export function setupAuthenticationHandlers(client: any): void {
     client.on('auth_failure', (msg: string) => {
         console.error('Authentication failure:', msg);
     });
+
+    client.on('loading_screen', (percent: string, message: string) => {
+        console.log(`LOADING: ${percent}% - ${message}`);
+    });
 }
 
 // Handle client ready state
+let isReady = false;
 export function setupReadyHandler(client: any): void {
     client.on('ready', async () => {
+        if (isReady) return;
+        isReady = true;
+        
         console.log('WhatsApp Client is ready');
 
         const groupChat = await syncGroup(client);
@@ -54,15 +62,54 @@ export function setupReadyHandler(client: any): void {
     });
 }
 
-/**
- * Starts the self-registration flow for a user.
- */
-async function startSelfRegistration(userPhone: string, message: any): Promise<void> {
-    console.log(`[REG] Starting self-registration for ${userPhone}`);
+async function startSelfRegistration(userPhone: string, message: any, isFromTargetGroup: boolean = false): Promise<void> {
+    if (isFromTargetGroup) {
+        console.log(`[REG] Starting self-registration for ${userPhone}`);
+    }
     startUserRegistration(userPhone); // Starts at 'name' by default
     
     const namePrompt = t('register.askName', userPhone);
     await message.reply(namePrompt);
+}
+
+/**
+ * Starts the registration flow for a specific target user (triggered by admin).
+ */
+async function startTargetRegistration(client: any, targetPhone: string, adminPhone: string, message: any): Promise<void> {
+    try {
+        // Clean and format the target phone number
+        let cleanNumber = targetPhone.replace(/\D/g, '');
+        if (!cleanNumber.startsWith('91') && cleanNumber.length === 10) {
+            cleanNumber = '91' + cleanNumber;
+        }
+        const targetId = cleanNumber + '@c.us';
+
+        console.log(`[REG] Admin ${adminPhone} starting registration for ${targetId}`);
+        
+        // Ensure the bot "knows" this contact/chat before sending a message
+        try {
+            await client.getContactById(targetId);
+        } catch (e) {
+            console.warn(`[REG] Warning: Could not pre-fetch contact ${targetId}, attempting to send anyway.`);
+        }
+        
+        // Initialize state
+        startUserRegistration(targetId);
+        markUserWaitingForLanguage(targetId);
+        
+        // Notify the target user (Direct Message)
+        const langMsg = t('register.selectLanguage', targetId);
+        const welcomeMsg = `Hello! A registration flow has been started for you by an administrator.\n\n${langMsg}`;
+        
+        await client.sendMessage(targetId, welcomeMsg);
+        
+        // Confirm to the admin in the group
+        await message.reply(`✅ Registration flow initiated for ${cleanNumber}. They have been sent a DM to proceed.`);
+        
+    } catch (err) {
+        console.error(`[REG] Failed to start target registration:`, err);
+        await message.reply(`❌ Failed to start registration for ${targetPhone}. Please check the number and try again.`);
+    }
 }
 
 function getSenderId(message: any, contact: any, chat: any): string {
@@ -82,8 +129,12 @@ export function setupMessageHandler(client: any): void {
     console.log('>>> MESSAGE HANDLER VERSION 2.0 (LID FIX ACTIVE) <<<');
     client.on('message', async (message: any) => {
         try {
-            // Ignore messages from the bot itself
-            if (message.fromMe) return;
+            // Ignore status updates
+            if (message.from === 'status@c.us') return;
+
+            // Normally ignore messages from the bot itself to prevent loops,
+            // but allow them if they are commands (starting with '/') so the owner can use the bot.
+            if (message.fromMe && !message.body.trim().startsWith('/')) return;
 
             const chat = await message.getChat();
             const contact = await message.getContact();
@@ -91,18 +142,45 @@ export function setupMessageHandler(client: any): void {
             const userPhone = normalizeUserid(rawUserPhone);
             const sender = contact.name || contact.pushname || userPhone;
 
-            console.log(`[MSG] Processing: "${message.body}" from ${sender}`);
-
-            // Handle /register command - Move OUTSIDE group check to work anywhere
-            if (message.body.trim() === '/register') {
-                console.log(`[CMD] Register command received from ${userPhone}`);
-                await startSelfRegistration(userPhone, message);
-                return;
-            }
-
-            // Only process other registration logic from target group or DMs
             const isFromTargetGroup = chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME;
             const isDirectMessage = !chat.isGroup;
+
+            // Only log if it's from the target group
+            if (isFromTargetGroup) {
+                console.log(`[MSG] Processing: "${message.body}" from ${sender}`);
+            }
+
+            // Handle /register command
+            const msgBody = message.body.trim();
+            if (msgBody.startsWith('/register')) {
+                console.log(`[CMD] Register command detected. From: ${sender}, isFromTargetGroup: ${isFromTargetGroup}, isDirectMessage: ${isDirectMessage}`);
+                if (isFromTargetGroup || isDirectMessage) {
+                    const parts = msgBody.split(/\s+/);
+                    
+                    // Case 1: Admin registering someone else (/register 91XXXXXXXXXX)
+                    if (parts.length > 1 && isFromTargetGroup) {
+                        const isAdmin = message.fromMe || chat.participants.some((p: any) => 
+                            normalizeUserid(p.id._serialized) === userPhone && p.isAdmin
+                        );
+
+                        if (isAdmin) {
+                            const targetPhone = parts[1];
+                            await startTargetRegistration(client, targetPhone, userPhone, message);
+                            return;
+                        } else {
+                            await message.reply('❌ Only group admins can register other users. Use just `/register` to register yourself.');
+                            return;
+                        }
+                    }
+
+                    // Case 2: Self-registration (/register)
+                    if (isFromTargetGroup) {
+                        console.log(`[CMD] Register command received from ${userPhone}`);
+                    }
+                    await startSelfRegistration(userPhone, message, isFromTargetGroup);
+                }
+                return;
+            }
 
             if (isFromTargetGroup || isDirectMessage) {
                 // Step 1: Check if user is waiting for language selection
@@ -118,7 +196,7 @@ export function setupMessageHandler(client: any): void {
                     const selectedLanguage = handleLanguageSelection(userPhone, message.body);
                     if (selectedLanguage) {
                         logActivity(`${sender} selected language: ${selectedLanguage}`);
-                        await startSelfRegistration(userPhone, message);
+                        await startSelfRegistration(userPhone, message, isFromTargetGroup);
                     } else {
                         const msg = t('register.selectLanguage', userPhone);
                         await message.reply(msg);
@@ -150,7 +228,9 @@ export function setupMessageHandler(client: any): void {
                     const currentStep = getUserRegistrationStep(userPhone);
                     const userInput = message.body.trim();
 
-                    console.log(`[REG] User ${userPhone} at step: ${currentStep}`);
+                    if (isFromTargetGroup) {
+                        console.log(`[REG] User ${userPhone} at step: ${currentStep}`);
+                    }
 
                     try {
                         if (currentStep === 'name') {
@@ -310,5 +390,13 @@ export function setupGroupUpdateHandler(client: any): void {
 export function setupDisconnectHandler(client: any): void {
     client.on('disconnected', (reason: string) => {
         logActivity(`System: Client disconnected (${reason})`);
+    });
+
+    client.on('change_state', (state: string) => {
+        console.log(`State Changed: ${state}`);
+    });
+
+    client.on('error', (err: any) => {
+        console.error('Client Error:', err);
     });
 }

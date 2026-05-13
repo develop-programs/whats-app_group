@@ -11,7 +11,10 @@ export async function syncGroup(client: any) {
     console.log('Syncing groups (waiting for stability)...');
     await delay(CONFIG.GROUP_SYNC_DELAY);
 
+    console.log('Fetching all chats (this may take a moment)...');
     const chats = await client.getChats();
+    console.log(`Found ${chats.length} chats. Searching for target group: "${CONFIG.TARGET_GROUP_NAME}"`);
+    
     let group = chats.find((chat: any) => chat.isGroup && chat.name === CONFIG.TARGET_GROUP_NAME);
 
     if (group) {

@@ -35,7 +35,12 @@ export const CONFIG = {
     // Puppeteer configuration for WhatsApp client
     PUPPETEER_ARGS: {
         handleSIGINT: false,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage'
+        ],
         protocolTimeout: 0, 
     },
 
