@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
 import { logActivity } from './logger.js';
 import { syncGroup } from './group-service.js';
 import { t } from './language.js';
-import { appendToGoogleSheet } from './google-sheets.js';
+import { appendToGoogleSheet, uploadToGoogleDrive } from './google-sheets.js';
 import { normalizeUserid } from './utils.js';
 import {
     isWaitingForLanguageSelection,
@@ -310,6 +310,10 @@ export function setupMessageHandler(client: any): void {
                                         
                                         await chat.sendMessage(adminMsg);
 
+                                        // Upload to Google Drive
+                                        console.log(`[GDrive] Uploading selfie for ${regData.name}...`);
+                                        const driveLink = await uploadToGoogleDrive(filePath, fileName);
+                                        
                                         // Save to Google Sheets
                                         await appendToGoogleSheet({
                                             name: regData.name || '',
@@ -318,10 +322,10 @@ export function setupMessageHandler(client: any): void {
                                             trade: regData.trade || '',
                                             experience: regData.experience || '',
                                             availability: regData.availability || '',
-                                            selfiePath: fileName
+                                            selfiePath: driveLink || fileName // Use drive link if available, fallback to filename
                                         });
 
-                                        logActivity(`Worker submission: ${regData.name} (${regData.trade})`);
+                                        logActivity(`Worker submission: ${regData.name} (${regData.trade}). Drive Link: ${driveLink || 'failed'}`);
                                     }
                                 } else {
                                     await message.reply(t('register.askSelfie', userPhone));

@@ -6,3 +6,7 @@ dist
 uploads
 group_activity.log
 .env
+tokens.json
+credentials.json
+*.csv
+*.log

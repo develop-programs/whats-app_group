@@ -67,4 +67,9 @@ export const CONFIG = {
     GOOGLE_REDIRECT_URI: 'http://localhost',
     GOOGLE_TOKENS_PATH: 'tokens.json',
     GOOGLE_SHEETS_CREDENTIALS_PATH: 'credentials.json', // Still keep for fallback
+    GOOGLE_DRIVE_FOLDER_ID: (() => {
+        const link = process.env['GOOGLE_DRIVE_FOLDER_ID'] || '';
+        const match = link.match(/folders\/([a-zA-Z0-9-_]+)/) || link.match(/id=([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : link;
+    })(),
 };

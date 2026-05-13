@@ -30,6 +30,11 @@ setupDisconnectHandler(client);
 client.initialize();
 console.log('Client initialization sent... Waiting for "ready" event.');
 
+// Proactively check Google Auth to trigger setup if needed
+import { checkGoogleAuth } from './google-sheets.js';
+console.log('Checking Google Authorization...');
+checkGoogleAuth().catch(err => console.error('Auth Check Error:', err));
+
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
     console.log(t('system.shutting'));
